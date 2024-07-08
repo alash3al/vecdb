@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	db, err := store.Open("v1", "./data/v1.db")
+	db, err := store.Open("v1", "./v1.db")
 	if err != nil {
 		panic(err.Error())
 	}
