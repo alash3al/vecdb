@@ -31,7 +31,7 @@ func main() {
 	result, err := db.Query(store.VectorQueryInput{
 		Bucket:                      "playground",
 		Vector:                      []float64{54.8, 5.5, 3.1},
-		MinCosineSimilarityDistance: 0.6,
+		MinCosineSimilarityDistance: 0.4,
 		MaxResultCount:              10,
 	})
 	if err != nil {
