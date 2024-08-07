@@ -45,6 +45,7 @@ embedder:
   # the arguments required by the driver
   # currently gemini driver requires `api_key` and `text_embedding_model`
   args:
+    # by default vecdb will replace anything between ${..} with the actual value from the ENV var
     api_key: "${GEMINI_API_KEY}"
     text_embedding_model: "text-embedding-004"
 ```
