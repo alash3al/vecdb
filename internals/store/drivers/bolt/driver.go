@@ -109,10 +109,6 @@ func (d *Driver) Query(q store.VectorQueryInput) (*store.VectorQueryResult, erro
 				})
 			}
 
-			if int64(len(result.Items)) >= q.MaxResultCount {
-				return errStop
-			}
-
 			return nil
 		})
 	})
@@ -124,6 +120,10 @@ func (d *Driver) Query(q store.VectorQueryInput) (*store.VectorQueryResult, erro
 	slices.SortFunc[store.VectorQueryResultItem](result.Items, func(a, b store.VectorQueryResultItem) bool {
 		return a.CosineSimilarity > b.CosineSimilarity
 	})
+
+	if q.MaxResultCount > 0 {
+		result.Items = result.Items[0:q.MaxResultCount]
+	}
 
 	return result, nil
 }
