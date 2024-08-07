@@ -1,44 +1,65 @@
 package main
 
 import (
-	"fmt"
+	"flag"
+	"github.com/alash3al/vecdb/internals/config"
+	"github.com/alash3al/vecdb/internals/embeddings"
+	"github.com/alash3al/vecdb/internals/http"
 	"github.com/alash3al/vecdb/internals/store"
-	_ "github.com/alash3al/vecdb/internals/store/drivers/v1"
-	"github.com/alash3al/vecdb/internals/vector"
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
+	"log"
+	// embedder drivers
+	_ "github.com/alash3al/vecdb/internals/embeddings/drivers/gemini"
+
+	// store drivers
+	_ "github.com/alash3al/vecdb/internals/store/drivers/bolt"
+)
+
+var (
+	flagConfigFilename = flag.String("config", "./config.yml", "the configuration filename")
 )
 
 func main() {
-	db, err := store.Open("v1", "./v1.db")
-	if err != nil {
-		panic(err.Error())
-	}
-	defer db.Close()
+	flag.Parse()
 
-	vectors := []vector.Vec{
-		{32.4, 74.1, 3.2},
-		{15.1, 19.2, 15.8},
-		{0.16, 1.2, 3.8},
-		{75.1, 67.1, 29.9},
-		{58.8, 6.7, 3.4},
-	}
+	var cfg *config.Config
+	var db store.Driver
+	var embedder embeddings.Driver
+	var err error
 
-	for i, v := range vectors {
-		if err := db.Put("playground", fmt.Sprintf("vec_%02d", i+1), v); err != nil {
-			panic(err.Error())
+	{
+		cfg, err = config.NewFromFile(*flagConfigFilename)
+		if err != nil {
+			log.Fatal(err.Error())
 		}
 	}
 
-	result, err := db.Query(store.VectorQueryInput{
-		Bucket:                      "playground",
-		Vector:                      []float64{54.8, 5.5, 3.1},
-		MinCosineSimilarityDistance: 0.4,
-		MaxResultCount:              10,
-	})
-	if err != nil {
-		panic(err.Error())
+	{
+		db, err = store.Open(cfg.Store.Driver, cfg.Store.Args)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
 	}
 
-	for _, v := range result.Items {
-		fmt.Println(v.Key, " <===> ", v.Distance)
+	if cfg.Embedder.Enabled {
+		embedder, err = embeddings.Open(cfg.Embedder.Driver, cfg.Embedder.Args)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
 	}
+
+	validate := validator.New(validator.WithRequiredStructEnabled())
+
+	app := fiber.New()
+
+	app.Get("/", http.Home())
+
+	app.Post("/v1/vectors/write", http.VectorWrite(validate, db))
+	app.Post("/v1/vectors/search", http.VectorSearch(validate, db))
+
+	app.Post("/v1/embeddings/text/write", http.EmbeddingsTextWrite(validate, embedder, db))
+	app.Post("/v1/embeddings/text/search", http.EmbeddingsTextSearch(validate, embedder, db))
+
+	log.Fatal(app.Listen(cfg.Server.ListenAddr))
 }

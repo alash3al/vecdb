@@ -1,0 +1,14 @@
+server:
+  listen: ":3000"
+
+store:
+  driver: "bolt"
+  args:
+    database: "./vec.db"
+
+embedder:
+  enabled: true
+  driver: gemini
+  args:
+    api_key: "${GEMINI_API_KEY}"
+    text_embedding_model: "text-embedding-004"

@@ -1,12 +1,14 @@
-package v1
+package bolt
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/alash3al/vecdb/internals/store"
 	"github.com/alash3al/vecdb/internals/vector"
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/exp/slices"
+	"math"
 )
 
 var _ store.Driver = (*Driver)(nil)
@@ -17,8 +19,19 @@ type Driver struct {
 	bucket *bolt.Bucket
 }
 
-func (d *Driver) Open(dsn string) error {
-	db, err := bolt.Open(dsn, 0600, bolt.DefaultOptions)
+type Value struct {
+	Vector       vector.Vec
+	Magnitude    float64
+	SigmoidValue float64
+}
+
+func (d *Driver) Open(args map[string]any) error {
+	filename, ok := args["database"].(string)
+	if !ok {
+		return fmt.Errorf("unable to find the store `args.database`")
+	}
+
+	db, err := bolt.Open(filename, 0600, bolt.DefaultOptions)
 	if err != nil {
 		return err
 	}
@@ -30,7 +43,11 @@ func (d *Driver) Open(dsn string) error {
 
 func (d *Driver) Put(bucket string, key string, vec vector.Vec) error {
 	keyBytes := []byte(key)
-	valueBytes, err := json.Marshal(vec)
+	valueBytes, err := json.Marshal(Value{
+		Vector:       vec,
+		Magnitude:    vec.Magnitude(),
+		SigmoidValue: 1 / (1 + math.Exp(-1*vec.Magnitude())),
+	})
 	if err != nil {
 		return err
 	}
@@ -79,22 +96,20 @@ func (d *Driver) Query(q store.VectorQueryInput) (*store.VectorQueryResult, erro
 		}
 
 		return bucket.ForEach(func(k, v []byte) error {
-			var currentIterationVec vector.Vec
+			var currentIterationValue Value
 
-			if err := json.Unmarshal(v, &currentIterationVec); err != nil {
+			if err := json.Unmarshal(v, &currentIterationValue); err != nil {
 				return err
 			}
 
-			if distance := currentIterationVec.CosineSimilarity(q.Vector); distance >= q.MinCosineSimilarityDistance {
+			if cosineSimilarity := currentIterationValue.Vector.CosineSimilarity(q.Vector); cosineSimilarity >= q.MinCosineSimilarity {
 				result.Items = append(result.Items, store.VectorQueryResultItem{
-					Key:      string(k),
-					Distance: distance,
+					Key:              string(k),
+					CosineSimilarity: cosineSimilarity,
 				})
 			}
 
-			result.Count++
-
-			if result.Count >= q.MaxResultCount {
+			if int64(len(result.Items)) >= q.MaxResultCount {
 				return errStop
 			}
 
@@ -107,7 +122,7 @@ func (d *Driver) Query(q store.VectorQueryInput) (*store.VectorQueryResult, erro
 	}
 
 	slices.SortFunc[store.VectorQueryResultItem](result.Items, func(a, b store.VectorQueryResultItem) bool {
-		return a.Distance > b.Distance
+		return a.CosineSimilarity > b.CosineSimilarity
 	})
 
 	return result, nil

@@ -1,6 +1,7 @@
-package store
+package embeddings
 
 import (
+	"context"
 	"fmt"
 	"github.com/alash3al/vecdb/internals/vector"
 	"sync"
@@ -13,9 +14,7 @@ var (
 
 type Driver interface {
 	Open(args map[string]any) error
-	Put(bucket string, key string, vec vector.Vec) error
-	Delete(bucket string, key string) error
-	Query(q VectorQueryInput) (*VectorQueryResult, error)
+	TextEmbedding(ctx context.Context, content string) (vector.Vec, error)
 	Close() error
 }
 
@@ -24,7 +23,7 @@ func Register(name string, driver Driver) {
 	defer driversMapMutex.Unlock()
 
 	if _, found := driversMap[name]; found {
-		panic(fmt.Sprintf("specified store driver %s exists", name))
+		panic(fmt.Sprintf("specified embeddings driver %s exists", name))
 	}
 
 	driversMap[name] = driver
@@ -36,7 +35,7 @@ func Open(name string, args map[string]any) (Driver, error) {
 
 	driver, found := driversMap[name]
 	if !found {
-		return nil, fmt.Errorf("store driver %s not found", name)
+		return nil, fmt.Errorf("embeddings driver %s not found", name)
 	}
 
 	if err := driver.Open(args); err != nil {
