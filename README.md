@@ -102,3 +102,8 @@ Requests
   "max_result_count": 10 // max vectors to return (vecdb will first order by cosine similarity then apply the limit)
 }
 ```
+
+Download/Install
+================
+- [Binary](https://github.com/alash3al/vecdb/releases)
+- [Docker Image](https://github.com/alash3al/vecdb/pkgs/container/vecdb)
