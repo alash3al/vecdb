@@ -8,7 +8,6 @@ import (
 	"github.com/alash3al/vecdb/internals/vector"
 	bolt "go.etcd.io/bbolt"
 	"golang.org/x/exp/slices"
-	"math"
 )
 
 var _ store.Driver = (*Driver)(nil)
@@ -20,9 +19,8 @@ type Driver struct {
 }
 
 type Value struct {
-	Vector       vector.Vec
-	Magnitude    float64
-	SigmoidValue float64
+	Vector    vector.Vec
+	Magnitude float64
 }
 
 func (d *Driver) Open(args map[string]any) error {
@@ -44,9 +42,8 @@ func (d *Driver) Open(args map[string]any) error {
 func (d *Driver) Put(bucket string, key string, vec vector.Vec) error {
 	keyBytes := []byte(key)
 	valueBytes, err := json.Marshal(Value{
-		Vector:       vec,
-		Magnitude:    vec.Magnitude(),
-		SigmoidValue: 1 / (1 + math.Exp(-1*vec.Magnitude())),
+		Vector:    vec,
+		Magnitude: vec.Magnitude(),
 	})
 	if err != nil {
 		return err
