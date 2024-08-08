@@ -14,8 +14,7 @@ var _ store.Driver = (*Driver)(nil)
 var errStop = errors.New("STOP")
 
 type Driver struct {
-	db     *bolt.DB
-	bucket *bolt.Bucket
+	db *bolt.DB
 }
 
 type Value struct {
